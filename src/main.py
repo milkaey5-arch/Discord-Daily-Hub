@@ -2,57 +2,74 @@ import os
 import requests
 from datetime import datetime
 
-webhook = os.getenv("DISCORD_WEBHOOK")
+WEBHOOK = os.getenv("DISCORD_WEBHOOK")
 
-if not webhook:
+if not WEBHOOK:
     raise Exception("Brak sekretu DISCORD_WEBHOOK!")
 
-# Kursy NBP
-nbp = requests.get("https://api.nbp.pl/api/exchangerates/tables/A?format=json").json()[0]["rates"]
+# ==========================
+# Kursy walut NBP
+# ==========================
 
-kursy = {}
+nbp = requests.get(
+    "https://api.nbp.pl/api/exchangerates/tables/A?format=json",
+    timeout=10
+).json()[0]["rates"]
 
-for waluta in ["USD", "EUR", "GBP"]:
-    kurs = next(x for x in nbp if x["code"] == waluta)
-    kursy[waluta] = kurs["mid"]
+rates = {x["code"]: x["mid"] for x in nbp}
 
-# BTC i ETH (CoinGecko)
+# ==========================
+# Kryptowaluty
+# ==========================
+
 crypto = requests.get(
-    "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=pln"
+    "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=pln",
+    timeout=10
 ).json()
 
 btc = crypto["bitcoin"]["pln"]
 eth = crypto["ethereum"]["pln"]
 
-# Pogoda (Bełchatów)
+# ==========================
+# Pogoda
+# ==========================
+
 weather = requests.get(
-    "https://api.open-meteo.com/v1/forecast?latitude=51.3688&longitude=19.3567&current=temperature_2m"
+    "https://api.open-meteo.com/v1/forecast?latitude=51.3688&longitude=19.3567&current=temperature_2m",
+    timeout=10
 ).json()
 
 temp = weather["current"]["temperature_2m"]
 
+# ==========================
+# Embed
+# ==========================
+
 embed = {
-    "title": "🌅 Daily Report",
-    "color": 0x2ECC71,
+    "title": "🔥 NOWA WERSJA DZIAŁA 🔥",
+    "description": "Jeżeli widzisz tę wiadomość, działa nowy kod z GitHub Actions.",
+    "color": 3066993,
     "fields": [
         {
             "name": "💰 Waluty",
-            "value":
-                f"🇺🇸 USD: **{kursy['USD']:.2f} PLN**\n"
-                f"🇪🇺 EUR: **{kursy['EUR']:.2f} PLN**\n"
-                f"🇬🇧 GBP: **{kursy['GBP']:.2f} PLN**",
+            "value": (
+                f"🇺🇸 USD: {rates['USD']:.2f} PLN\n"
+                f"🇪🇺 EUR: {rates['EUR']:.2f} PLN\n"
+                f"🇬🇧 GBP: {rates['GBP']:.2f} PLN"
+            ),
             "inline": False
         },
         {
             "name": "₿ Kryptowaluty",
-            "value":
-                f"BTC: **{btc:,.0f} PLN**\n"
-                f"ETH: **{eth:,.0f} PLN**",
+            "value": (
+                f"BTC: {btc:,.0f} PLN\n"
+                f"ETH: {eth:,.0f} PLN"
+            ),
             "inline": False
         },
         {
             "name": "🌤 Pogoda",
-            "value": f"Bełchatów\n🌡 {temp}°C",
+            "value": f"Bełchatów\n{temp}°C",
             "inline": False
         }
     ],
@@ -61,9 +78,13 @@ embed = {
     }
 }
 
-requests.post(
-    webhook,
+response = requests.post(
+    WEBHOOK,
     json={
         "embeds": [embed]
-    }
+    },
+    timeout=10
 )
+
+print(response.status_code)
+print(response.text)
